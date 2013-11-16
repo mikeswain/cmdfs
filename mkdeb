@@ -1,0 +1,20 @@
+#! /bin/bash
+
+PKGNAME=cmdfs
+VERSION=0.5
+DISTDIR=${PKGNAME}-${VERSION}
+DISTTGZ=${DISTDIR}.tar.gz
+
+make dist
+mkdir dist
+cp $DISTTGZ dist/${PKGNAME}_$VERSION.orig.tar.gz
+zcat $DISTTGZ | (cd dist && tar -xf -)
+mkdir -p dist/$DISTDIR/debian
+(cd debian && tar cf - --exclude=CVS . \
+   | (cd ../dist/$DISTDIR/debian && tar xBf -))
+(cd dist/$DISTDIR && \
+              debuild -i -us -uc -sa -S && \
+              debuild -i -us -uc -b)
+rm -rf dist/$DISTDIR
+
+exit 0

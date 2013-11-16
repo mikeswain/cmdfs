@@ -1,0 +1,17 @@
+Source: cmdfs
+Section: utils
+Priority: optional
+Maintainer: Mike Swain <mike@hiko.co.nz>
+Build-Depends: debhelper (>= 5.0.0), autotools-dev, libfuse-dev
+Homepage: http://cmdfs.sourceforge.net/
+Standards-Version: 3.7.3
+
+Package: cmdfs
+Architecture: any
+Depends: ${shlibs:Depends}
+Description: A FUSE filesystem that applies user-specified filter commands
+ cmdfs is a FUSE virtual filesystem which applies an arbitary filter
+ command to selected files in a source directory tree to create the
+ destination files.  Includes configurable caching and monitoring of
+ the source tree to limit CPU use and prefetch data.
+

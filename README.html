@@ -1,0 +1,483 @@
+<!-- Creator     : groff version 1.21 -->
+<!-- CreationDate: Sun Jul 29 12:22:07 2012 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>cmdfs</title>
+
+</head>
+<body>
+
+<h1 align="center">cmdfs</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#OPTIONS">OPTIONS</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+<a href="#AUTHOR">AUTHOR</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">cmdfs - command
+file system</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>cmdfs</b>
+&lt;<i>source-dir</i>&gt; &lt;<i>mount-dir</i>&gt;
+[<i>options</i>]</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>cmdfs</i> is
+a FUSE virtual filesystem that applies an arbitary filter
+command to selected files in a source directory tree to
+create the destination files. It includes configurable
+caching and monitoring of the source tree to limit CPU use
+and prefetch data.</p>
+
+<h2>OPTIONS
+<a name="OPTIONS"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>cmdfs</i>
+accepts the following options: <b><br>
+&minus;o command=&lt;</b><i>shell command</i>&gt;</p>
+
+<p style="margin-left:23%;">The command to run to generate
+the file&rsquo;s content [default: cat]</p>
+
+<p style="margin-left:11%;"><b>&minus;o
+extension=</b><i>ext1</i>[;<i>ext2</i>[;...]]</p>
+
+<p style="margin-left:23%;">Specify matching file
+extension(s) to which command is applied</p>
+
+<p style="margin-left:11%;"><b>&minus;o
+path-re=&lt;</b><i>regular expression</i>&gt;</p>
+
+<p style="margin-left:23%;">Specify regexp of pathnames to
+which command is applied</p>
+
+<p style="margin-left:11%;"><b>&minus;o
+mime-re=&lt;</b><i>regular expression</i>&gt;</p>
+
+<p style="margin-left:23%;">Specify regexp of mime types
+(as returned by <i>file <br>
+-b --mime-type</i>) to which command is applied</p>
+
+<p style="margin-left:11%;"><b>&minus;o link-thru</b></p>
+
+<p style="margin-left:23%;">Pass unmatched files through to
+filesystem as symbolic links [default: files not listed or
+accessible]</p>
+
+<p style="margin-left:11%;"><b>&minus;o
+hide-empty-dirs</b></p>
+
+<p style="margin-left:23%;">Don&rsquo;t show directories
+that have no matching descendant files</p>
+
+<p style="margin-left:11%;"><b>&minus;o monitor</b></p>
+
+<p style="margin-left:23%;">Watch source directory tree for
+new files and cache them as they appear. New directories
+will be monitored [default: not monitored]</p>
+
+<p style="margin-left:11%;"><b>&minus;o
+cache-dir=&lt;</b><i>directory</i>&gt;</p>
+
+<p style="margin-left:23%;">Directory to save cache files
+[default:
+/usr/local/var/cache/cmdfs/&lt;<i>user</i>&gt;/&lt;<i>source-dir</i>&gt;]</p>
+
+<p style="margin-left:11%;"><b>&minus;o
+cache-size=&lt;</b><i>size in Mb</i>&gt;</p>
+
+<p style="margin-left:23%;">Size to attempt to limit cache
+directory to. Files removed on least-recently access basis.
+[default: no limit]</p>
+
+<p style="margin-left:11%;"><b>&minus;o
+cache-entries=&lt;</b><i>count</i>&gt;</p>
+
+<p style="margin-left:23%;">Number of entries to attempt to
+limit cache directory to. Files removed on least-recent
+access basis. [default: no limit]</p>
+
+<p style="margin-left:11%;"><b>&minus;o
+cache-expiry=&lt;</b><i>time in seconds</i>&gt;</p>
+
+<p style="margin-left:23%;">Items in cache older than this
+will be replaced when read [default: never expires]</p>
+
+<p style="margin-left:11%;"><b>&minus;o
+stat-pass-thru</b></p>
+
+<p style="margin-left:23%;">Don&rsquo;t force a stat() call
+to create cached file from source, just use the source file
+as the target if not available. Saves slow directory
+listings if accurate sizes etc. not required. [default:
+stat() calls create a cached file]</p>
+
+<h2>EXAMPLES
+<a name="EXAMPLES"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Given a source
+tree, that includes, say, jpg images, we can generate a view
+filesystem which contains the same files resized to email
+size. The filter command is set up as a fileystem option at
+mount time. In this case our filter option might be
+something like (using ImageMagick&rsquo;s convert
+command):</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="7%"></td>
+<td width="85%">
+
+
+<p>command=convert - -resize 20% -</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">Note we follow
+the UNIX convention of taking the standard input and
+filtering to standard output. Being a FUSE filesystem, the
+child process will be run under the group/user of the owner.
+The command is run within a shell (/bin/sh) process, as if
+started by /bin/sh -c &rsquo;&lt;command&gt;&rsquo;
+Obviously there&rsquo;ll be files in the source tree which
+we dont want to apply the filter to. In this case we
+identify files of interest by extension:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="7%"></td>
+<td width="85%">
+
+
+<p>extension=jpg;gif;png</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">To mount the
+filesystem as above for a particular user:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="7%"></td>
+<td width="85%">
+
+
+<p>cmdfs /home/bob/images /mnt/myphotos
+&quot;-ocommand=convert - -resize</p></td></tr>
+</table>
+
+<p style="margin-left:11%;">20%
+-,extension=jpg;gif;png&quot;</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Selection
+Filters</b> <br>
+As well as just matching on extension, files of interest can
+be selected by mime type, matching a regexp (cmdfs uses the
+file command to determine the mimetype):</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="7%"></td>
+<td width="85%">
+
+
+<p>mime-re=image/*</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">Or just a plain
+path regexp (this allows us to exclude whole directory
+subtrees etc</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="7%"></td>
+<td width="85%">
+
+
+<p>path-re=.*/my-images/</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">These options
+can be combined to get the required filter selection.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Unmatched
+Files</b> <br>
+By default, files which don&rsquo;t match a filter
+won&rsquo;t appear in the filesystem view. We may want to
+see the original files though, so the</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="7%"></td>
+<td width="85%">
+
+
+<p>link-thru</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">option may be
+specified. This will generate symbolic links to the original
+files.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Monitoring</b>
+<br>
+The image resize example is a good example of an application
+where we might want the files in the source filesystem to be
+filtered as they are added, rather than just on-demand.
+Cmdfs uses inotify to monitor all the directories in the
+tree, and automatically monitors new subdirectories as they
+are added:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="7%"></td>
+<td width="85%">
+
+
+<p>monitor</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">When you copy
+the latest batch of files from your camera the resized
+versions will automatically be generated.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Caching</b>
+<br>
+cmdfs only recreates view files if the modification date
+changes on the source. All files created using the filter
+are held in a cache directory, with a name created as a hash
+from the full path. By default this directory is located in
+/ tmp/cmdfs-cache.&lt;user name&gt;, but can be changed:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="7%"></td>
+<td width="85%">
+
+
+<p>cache-dir=&lt;dir&gt;</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">Note that some
+systems will clear the /tmp directory tree between reboots,
+which may or may not be desired. The size of the cache
+directory can be limited using:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="7%"></td>
+<td width="85%">
+
+
+<p>cache-size=&lt;size in mb&gt;</p></td></tr>
+</table>
+
+<p style="margin-left:22%;">and/or</p>
+
+<p style="margin-left:11%;">cache-entries=&lt;number of
+files&gt;</p>
+
+<p style="margin-left:11%; margin-top: 1em">The least
+recently accessed cached files will be removed in the
+background to maintain these limits. Expiry on cached files
+can be specified with:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="8%"></td>
+<td width="7%"></td>
+<td width="85%">
+
+
+<p>cache-expiry=&lt;time in secs&gt;</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">Cached files
+will be recreated if the are older than this.</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Mounting
+With fstab</b> <br>
+To aid in mounting directories for multiple users, cmdfs
+accepts the source base directory as the first argument so
+it can be mounted using the conventional mount.fuse script
+from fstab. This allows supplying cmdfs#&lt;dir&gt; as the
+fs_spec (see man 5 fstab). The user_allow_other option needs
+to be enabled in /etc/fuse.conf to allow normal users to
+mount (see fuse.conf). An example fstab entry:</p>
+
+
+<p style="margin-left:11%; margin-top: 1em">cmdfs#/media/myphotos
+/home/bob/images fuse
+user,allow_other,command=convert\040-\040-resize\04020%\040-,monitor,cache-size=500,extension=jpg;gif;png
+0 0</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that the
+spaces in the command need to be escaped using \040 for
+/etc/ fstab to parse correctly</p>
+
+<p style="margin-left:11%; margin-top: 1em"><b>Example 2:
+Dynamically Generated Files</b> <br>
+The command used to generate the output does not need to be
+a simple stdin- &gt;stdout filter, it can generate its
+output from whatever source it chooses. Of course this is of
+limited utility unless you can specify what command/
+parameters to run (otherwise every file in the filesystem
+would have the same content!). The shell command may
+therefore contain a substitution token, %f, which will be
+replaced with the full path/filename of the input file. If,
+for example, the command is simply &rsquo;%f&rsquo;, cmdfs
+will attempt to execute the file (it should have +x
+permission to allow this) This effectively gives a
+&rsquo;CGI&rsquo; type function to the filesytem. e.g. If
+may contain a script: <br>
+% cat &gt; /home/bob/showps <br>
+#!/bin/sh <br>
+ps -ef <br>
+^D <br>
+% chmod +x /home/bob/showps <br>
+% cmdfs /home/bob /tmp/test
+&quot;-opath-re=.*,command=%f,cache-expiry=5&quot; <br>
+% cat /tmp/test/showps <br>
+UID PID PPID C STIME TTY TIME CMD <br>
+root 1 0 0 Feb13 ? 00:00:01 /sbin/init <br>
+root 2 0 0 Feb13 ? 00:00:00 [kthreadd] <br>
+root 3 2 0 Feb13 ? 00:00:00 [migration/0] <br>
+root 4 2 0 Feb13 ? 00:00:09 [ksoftirqd/0] <br>
+root 5 2 0 Feb13 ? 00:00:00 [watchdog/0] <br>
+...</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that the
+cache expiry time in the example has been set at 5 secs -
+this means the ps results will be re-created if older than 5
+sesonds.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p>If the executable returns a non-zero exit status, cmdfs
+will assume that it</p></td></tr>
+</table>
+
+<p style="margin-left:17%;">has failed (will appear as
+&rsquo;No such file or directory&rsquo;).</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">It is not recommend to use the
+%f facility to modify the source file - this</p></td></tr>
+</table>
+
+<p style="margin-left:17%;">will invalidate the cache
+immediately resulting in a recreation of the output <br>
+on next read (unless this is intended)</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p style="margin-top: 1em">&bull;</p></td>
+<td width="5%"></td>
+<td width="83%">
+
+
+<p style="margin-top: 1em">cmdfs also sets an environment
+variable INPUT_FILE in the child command</p></td></tr>
+</table>
+
+<p style="margin-left:17%;">process, which contains the
+source file name, which may be useful if the <br>
+eventual executable is being called via a parent script.</p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>fusermount</b>(1),</p>
+
+<h2>AUTHOR
+<a name="AUTHOR"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">Mike Swain
+&lt;mike@hiko.co.nz&gt;</p>
+<hr>
+</body>
+</html>

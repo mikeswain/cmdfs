@@ -1,0 +1,35 @@
+27-01-2010 Mike Swain <mike@yagz.org.uk>
+ * Initial release 0.1
+ 
+30-01-2010 Mike Swain <mike@yagz.org.uk>
+ * Release 0.2
+	 Remove base-dir option - specify with first argument for fstab
+	 Code tidy
+	 Bug, inotify event name not null terminated
+	 Update help and README
+
+
+02-14-2010 Mike Swain <mike@yagz.org.uk>
+ * Release 0.3
+	 Add cache_expiry option
+	 Add %f dynamic file generation
+	 Add INPUT_FILE env var
+	 Update help and README
+ 
+03-24-2010  Mike Swain <mike@yagz.org.uk>
+ * Release 0.4
+	 Add hide-empty-dirs option
+	 Add test suite
+	 Various bugs fixed
+	 Caching changed to not use md5 hashing (for performance). Names are as is with dirs flattened.
+	 Default Cache location changed to [/usr/local]/var/log
+	 Update help and README
+
+16-07-2012  Mike Swain <mike@hiko.co.nz>
+ * Release 0.5
+	 Add stat-pass-thru
+	 Add test to test suite and improve tests
+	 Fix Amd64 build
+	 Various bugs fixed
+	 Add more logging (e.g. dumps options at start of session)
+	 

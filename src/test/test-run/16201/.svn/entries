@@ -1,0 +1,126 @@
+10
+
+dir
+0
+svn://localhost/Cmdfs2/src/test/test-run/16201
+svn://localhost
+add
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+08b67eb0-6be8-49db-b9d1-a432c014b037
+
+__main__.TestCmdfs.test_hide_empty_dirs
+dir
+
+
+
+add
+
+__main__.TestCmdfs.test_simpleCommand
+dir
+
+
+
+add
+
+__main__.TestCmdfs.test_simple
+dir
+
+
+
+add
+
+__main__.TestCmdfs.test_subdirs
+dir
+
+
+
+add
+
+__main__.TestCmdfs.test_extension
+dir
+
+
+
+add
+
+__main__.TestCmdfs.test_mime_re
+dir
+
+
+
+add
+
+__main__.TestCmdfs.test_link_thru
+dir
+
+
+
+add
+
+__main__.TestCmdfs.test_tokenCommand
+dir
+
+
+
+add
+
+__main__.TestCmdfs.test_bigFile
+dir
+
+
+
+add
+
+__main__.TestCmdfs.test_delete
+dir
+
+
+
+add
+
+__main__.TestCmdfs.test_path_re
+dir
+
+
+
+add
+
+__main__.TestCmdfs.test_cache_expiry
+dir
+
+
+
+add
+
+__main__.TestCmdfs.test_stat_pass_thru
+dir
+
+
+
+add
+
+__main__.TestCmdfs.test_filterCommand
+dir
+
+
+
+add
+

@@ -1,0 +1,226 @@
+<html>
+<body>
+
+<p>
+<h1><a href='http://sourceforge.net/projects/cmdfs'>cmdfs - Command File System</a></h1>
+<h2>Version 0.4</h2>
+<p>
+	Copyright (C) 2010  Mike Swain
+</p>
+<p>
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+</p>
+<p>
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+</p>
+<p>
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <a href='http://www.gnu.org/licenses'>http://www.gnu.org/licenses</a>.
+</p>
+	
+<a href='http://sourceforge.net/projects/cmdfs'>Download</a>	
+ 
+ <h2>Introduction</h2>
+ 
+ Cmdfs is a FUSE virtual filesystem which applies an arbitary filter command to
+ selected files in a source directory tree to create the destination files. 
+ Includes configurable caching and monitoring of the source tree to limit CPU 
+ use and prefetch data.
+
+<h2>Requirements</h2>
+
+<ul><li>libfuse-dev</li>
+</ul>
+
+<h2>Build</h2>
+<ol>
+<li>Unpack archive
+<pre>
+tar zxvf cmdfs-&lt;ver&gt;.tar.gz</pre>
+</li>
+<li>Configure build
+<pre>
+cd cmdfs-&lt;ver&gt;<br>./configure
+</pre></li>
+<li>Build
+<pre>make</pre>
+</li>
+<li>Install
+<pre>sudo make install</pre>
+</li>
+</ol>
+ 
+<h2>Synposis</h2>
+<pre>cmdfs &lt;source-dir> &lt;mount-dir> [options]
+
+options
+    -o command=&ltshell command>
+       The command to run to generate the file's content [default: cat]
+	   
+    -o extension=ext1[;ext2[;...]]
+       Specify matching file extension(s) to apply command to
+       
+    -o path-re=&lt;regular expression>
+       Specify regexp of pathnames to apply command to
+
+    -o mime-re=&lt;regular expression>
+       Specify regexp of mime types to apply command to (as returned by file -b --mime-type)
+
+    -o link-thru
+       Pass unmatched files through to filesystem as symbolic links [default: files not listed or accessible]
+ 
+ 	-o hide-empty-dirs
+      	Don't show directories which have no matching descendant files
+       
+    -o monitor
+       Watch source directory tree for new files and cache them as they appear. New directories will be monitored [default: not monitored]
+    
+    -o cache-dir=&lt;dir>
+       Directory to save cache files [default: /usr/local/var/cache/cmdfs/&lt;user&gt;/&lt;source-dir&gt;]
+    
+    -o cache-size=&lt;size in Mb>
+       Size to attempt to limit cache directory to. Files removed on least-recent access basis.[default: no limit]
+    	
+    -o cache-entries=&lt;count>
+       Number of entries to attempt to limit cache directory to. Files removed on least-recent access basis.[default: no limit]
+
+    -o cache-expiry=&lt;time in secs>
+    	Items in cache older than this will be replaced when read
+       [default: never expires]
+
+</pre>
+
+<h2>How It Works - An Example</h2>
+
+<p> 
+ Given a source tree, which includes, say, jpg images, we can generate a 
+ view filesystem which contains the same files resized to email size. 
+ </p>
+ <p>
+ The filter command is set up as a fileystem option at mount time. In this
+ case our filter option might be something like (using <a href='http://www.imagemagick.org/script/index.php'>ImageMagick's</a> convert command):
+ <pre>command=convert - -resize 20% -</pre> 
+ </p>
+<p> 
+ Note we follow the UNIX convention of taking the standard input and filtering 
+ to standard output. Being a FUSE filesystem, the child process will be run 
+ under the group/user of the owner. The command is run within a shell (/bin/sh) process, as if started by
+ /bin/sh -c '&lt;command>'
+ </p>
+ <p>
+ Obviously there'll be files in the source tree which we dont want to apply the 
+ filter to. In this case we identify files of interest by extension:
+<pre>extension=jpg;gif;png</pre> 
+ </p>
+ 
+ <p>To mount the filesystem as above for a particular user:
+ <pre>
+ cmdfs /home/bob/images /mnt/myphotos "-ocommand=convert - -resize 20% -,extension=jpg;gif;png"
+ </pre>
+ </p>
+ 
+<h2>Selection Filters</h2>
+
+<p>As well as just matching on extension, files of interest can be selected by mime type, matching a regexp  (cmdfs uses the file command to determine the mimetype):
+<pre>mime-re=image/*</pre>
+</p> 
+<p>Or just a plain path regexp (this allows us to exclude whole directory subtrees etc
+<pre>path-re=.*/my-images/</pre>
+</p> 
+These options can be combined to get the required filter selection.
+ 
+<h2>Unmatched Files</h2>
+
+<p>By default, files which don't match a filter won't appear in the filesystem view. We may want to see the original files though, so the <pre>link-thru</pre> option may be specified. This will generate symbolic links to the original files.
+ </p><h2>
+ 
+Monitoring</h2>
+The image resize example is a good example of an application where we might want the files in the source filesystem to be filtered as they are added, rather than just on-demand. Cmdfs uses inotify to monitor all the directories in the
+tree, and automatically monitors new subdirectories as they are added:<br><pre>monitor</pre>
+When you copy the latest batch of files from your camera the resized versions will automatically be generated.
+
+
+<h2>Caching</h2></body>
+<p>
+cmdfs only recreates view files if the modification date changes on the source. All files created using the filter are held in a
+cache directory, with a name created as a hash from the full path. By default this directory is located in /tmp/cmdfs-cache.&lt;user name>, but can be changed:
+<pre>cache-dir=&lt;dir></pre>
+Note that some systems will clear the /tmp directory tree between reboots, which may or may not be desired.
+</p>
+The size of the cache directory can be limited using:
+<pre>cache-size=&lt;size in mb></pre>and/or<pre>cache-entries=&lt;number of files></pre>
+The least recently accessed cached files will be removed in the background to maintain these limits.
+<p>
+Expiry on cached files can be specified with:
+<pre>cache-expiry=&lt;time in secs></pre>
+Cached files will be recreated if the are older than this.
+
+<h2>Mounting With fstab</h2>
+To aid in mounting directories for multiple users, cmdfs accepts the source base directory as the first argument so it can be mounted using the conventional mount.fuse script from fstab. This
+allows supplying cmdfs#&lt;dir> as the fs_spec (see man 5 fstab). The user_allow_other option needs to be enabled in /etc/fuse.conf to allow 
+normal users to mount (see <a href='http://sourceforge.net/apps/mediawiki/fuse/index.php?title=Fuse.conf'>fuse.conf</a>).
+An example fstab entry:
+<pre>
+
+cmdfs#/media/myphotos /home/bob/images fuse user,allow_other,command=convert\040-\040-resize\04020%\040-,monitor,cache-size=500,extension=jpg;gif;png 0 0
+
+</pre>
+Note that the spaces in the command need to be escaped using \040 for /etc/fstab to parse correctly
+
+<h2>Example 2: Dynamically Generated Files</h2>
+The command used to generate the output does not need to be a simple stdin->stdout filter, it can generate its output from
+whatever source it chooses. Of course this is of limited utility unless you can specify what command/parameters to run (otherwise every file
+in the filesystem would have the same content!).
+<p>
+The shell command may therefore contain a substitution token, <em>%f</em>, which will be replaced with the full path/filename
+of the input file. If, for example, the command is simply '%f', cmdfs will attempt to execute the file (it should have +x
+permission to allow this)
+</p>  
+<p>
+This effectively gives a 'CGI' type function to the filesytem. e.g. If may contain a script:
+<p>
+<pre>
+$echo 'ps -ef' > /home/bob/showps
+#!/bin/sh
+ps -ef
+$chmod +x /home/bob/showps
+$cmdfs /home/bob /tmp/test "-opath-re=.*,command=%f,cache-expiry=5"
+$cat /tmp/test/showps
+UID        PID  PPID  C STIME TTY          TIME CMD
+root         1     0  0 Feb13 ?        00:00:01 /sbin/init
+root         2     0  0 Feb13 ?        00:00:00 [kthreadd]
+root         3     2  0 Feb13 ?        00:00:00 [migration/0]
+root         4     2  0 Feb13 ?        00:00:09 [ksoftirqd/0]
+root         5     2  0 Feb13 ?        00:00:00 [watchdog/0]
+...
+</pre>
+Note that the cache expiry time in the example has been set at 5 secs - this means the ps results will be re-created if older than 5 sesonds.
+<ul>
+<li>If the executable returns a non-zero exit status, cmdfs will assume that it has failed (will appear as 'No such file or directory').</li>
+<li>It is <em>not</em> recommend to use the %f facility to modify the source file - this will invalidate the cache immediately resulting
+in a recreation of the output on next read (unless this is intended)</li>
+<li>cmdfs also sets an environment variable INPUT_FILE in the child command process, which contains the source
+file name, which may be useful if the eventual executable is being called via a parent script.
+</li>
+</ul>
+</p>
+
+
+ 
+</p>
+
+
+</body>
+</html>
+ 
+ 
+ 
+ 
+ 
+ 	

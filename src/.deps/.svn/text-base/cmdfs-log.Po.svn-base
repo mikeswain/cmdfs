@@ -1,0 +1,28 @@
+cmdfs-log.o: log.c /usr/lib/gcc/i486-linux-gnu/4.4.1/include/stdarg.h \
+ /usr/include/syslog.h /usr/include/sys/syslog.h /usr/include/features.h \
+ /usr/include/bits/predefs.h /usr/include/sys/cdefs.h \
+ /usr/include/bits/wordsize.h /usr/include/gnu/stubs.h \
+ /usr/include/gnu/stubs-32.h /usr/include/bits/syslog-path.h \
+ /usr/include/bits/syslog.h
+
+/usr/lib/gcc/i486-linux-gnu/4.4.1/include/stdarg.h:
+
+/usr/include/syslog.h:
+
+/usr/include/sys/syslog.h:
+
+/usr/include/features.h:
+
+/usr/include/bits/predefs.h:
+
+/usr/include/sys/cdefs.h:
+
+/usr/include/bits/wordsize.h:
+
+/usr/include/gnu/stubs.h:
+
+/usr/include/gnu/stubs-32.h:
+
+/usr/include/bits/syslog-path.h:
+
+/usr/include/bits/syslog.h:
