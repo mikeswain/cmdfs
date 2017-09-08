@@ -36,30 +36,36 @@ options_t options = {
 monitor_t *monitor = NULL;
 cleaner_t *cleaner = NULL;
 
+static char *alloc_path(const char *dirpath) {
+	int path_max = pathconf(dirpath, _PC_PATH_MAX);
+	if (path_max == -1)         /* Limit not defined, or error */
+	    path_max = PATH_MAX;         /* Take a guess */
+	return (char *)malloc(path_max);
+}
+
+static struct dirent *alloc_dirent(const char *dirpath) {
+	int name_max = pathconf(dirpath, _PC_NAME_MAX);
+	if (name_max == -1)         /* Limit not defined, or error */
+	    name_max = NAME_MAX;    /* Take a guess */
+	return (struct dirent *)malloc(offsetof(struct dirent, d_name) + name_max + 1);
+}
+
 static int is_empty(const char *dirpath) {
 	int rv = 1;
+	char *cpath = alloc_path(dirpath);
+	sprintf(cpath,"%s/",strcmp(dirpath,"/")?dirpath:"");
+	char *npath = cpath+strlen(dirpath)+1;
 	DIR *dir = opendir(dirpath);
 	if ( dir ) {
-		union {
-			struct dirent d;
-		    char b[offsetof (struct dirent, d_name) + NAME_MAX + 1];
-		} u;
+		struct dirent *dpp = alloc_dirent(dirpath);
 		struct dirent *dp;
-		int dirpathlen = strlen(dirpath);
-		int size = dirpathlen+NAME_MAX+2;
-		char *cpath = malloc(size);
 		char **sdirs = NULL;
 		int sdirsize = 0;
 		int sdircount = 0;
-		while (rv && !readdir_r(dir,&u.d,&dp) && dp != NULL) {
-			if ( strcmp(u.d.d_name,".") && strcmp(u.d.d_name,"..") ) {
+		while (rv && !readdir_r(dir,dpp,&dp) && dp != NULL) {
+			if ( strcmp(dp->d_name,".") && strcmp(dp->d_name,"..") ) {
 				if ( !options.link_thru) {
-					int totlen = dirpathlen+strlen(u.d.d_name)+2;
-					if ( totlen > size ) {
-						size = totlen;
-						cpath = realloc(cpath,size);
-					}
-					sprintf(cpath,"%s/%s",strcmp(dirpath,"/")?dirpath:"",u.d.d_name);
+					strcpy(npath,dp->d_name);
 					struct stat st;
 					if (!stat(cpath,&st)) {
 						if (!S_ISREG(st.st_mode)) {
@@ -90,6 +96,7 @@ static int is_empty(const char *dirpath) {
 					rv = 0;
 			}
 		}
+		free(dpp);
 		free(cpath);
 		closedir(dir);
 		if ( rv && sdirs ) {
@@ -166,36 +173,33 @@ int cmdfs_readdir(const char *path, void *buf, fuse_fill_dir_t fill, off_t offse
 		rv = -ENOENT; // dir hidden
 	}
 	else if ( (dir = opendir(src)) ) {
-		union { // cope with possible broken dirent implementation, come on linux!
-			struct dirent d;
-		    char b[offsetof (struct dirent, d_name) + NAME_MAX + 1];
-		} u;
+		struct dirent *dpp=alloc_dirent(src);
 		struct dirent *dp;
 		char *cpath = NULL;
 		int pos = 0;
-		while (!readdir_r(dir,&u.d,&dp) && dp != NULL) {
+		while (!readdir_r(dir,dpp,&dp) && dp != NULL) {
 			if (++pos > offset ) {
 				struct stat st;
-				int isParent = !(strcmp(path,"/") || strcmp(u.d.d_name,"..")); // special case '..' looks in mount's parent
+				int isParent = !(strcmp(path,"/") || strcmp(dp->d_name,"..")); // special case '..' looks in mount's parent
 				if ( isParent ) {
 					cpath = realloc(cpath,strlen(options.mount_dir)+4);
 					sprintf(cpath,"%s/..",options.mount_dir);
 				}
 				else {
-					cpath = realloc(cpath,strlen(src)+strlen(u.d.d_name)+2);
-					sprintf(cpath,"%s/%s",strcmp(src,"/")?src:"",u.d.d_name);
+					cpath = realloc(cpath,strlen(src)+strlen(dp->d_name)+2);
+					sprintf(cpath,"%s/%s",strcmp(src,"/")?src:"",dp->d_name);
 				}
 				if (!stat(cpath,&st)) {
 					if (isParent || (S_ISDIR(st.st_mode) && // its a dir
 							!(options.hide_empty_dirs && is_empty(cpath))) || // its empty and we're hiding empties
 							options.link_thru) { // or linking thru
-						if (fill(buf,u.d.d_name,&st,pos))
+						if (fill(buf,dp->d_name,&st,pos))
 							break;
 					}
 					else if (!options.link_thru && S_ISREG(st.st_mode)) {
 						// we don want to show if it doesn't match command filter
 						vfile_t *f = file_create_from_src(cpath);
-						if ( file_get_command(f) && fill(buf,u.d.d_name,&st,pos)) {
+						if ( file_get_command(f) && fill(buf,dp->d_name,&st,pos)) {
 								file_destroy(f); break;
 						}
 						file_destroy(f);
