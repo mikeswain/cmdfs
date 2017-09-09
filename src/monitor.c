@@ -104,7 +104,6 @@ void monitor_remove_directory( monitor_t *m, char *name ) {
 void *monitor_run( void *_monitor ) {
 	log_debug("monitor run");
 	monitor_t *m = (monitor_t *)_monitor;
-	int rv = 0;
 	if ( (m->fd = inotify_init()) != -1) {
 		monitor_add_directory(m,m->rootdir);
 		int bufsize = 1024 * sizeof(struct inotify_event);
@@ -120,7 +119,7 @@ void *monitor_run( void *_monitor ) {
 				if ( errno == EINTR )
 					continue; // debugger
 				log_error("Read failed from inotify: %s\n",strerror(errno));
-				rv = errno;
+				m->status = errno;
 				break;
 			}
 			else {
@@ -179,9 +178,9 @@ void *monitor_run( void *_monitor ) {
 	}
 	else {
 		log_error("Failed to initialize inotify: %s\n",strerror(errno));
-		rv = errno;
+		m->status = errno;
 	}
-	return (void *)rv;
+	return (void *)m;
 
 
 }
@@ -208,6 +207,7 @@ void monitor_destroy(monitor_t *m) {
 		pthread_cancel(m->thread);
 		pthread_join(m->thread,&retval);
 	}
+	log_debug("Monitor exit with status: %s", m->status);
 	if ( m->rootdir)
 		free((void *)m->rootdir);
 	if ( m->mountdir)
