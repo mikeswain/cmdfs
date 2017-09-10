@@ -92,6 +92,7 @@ typedef struct {
 	wd_t *wd_lut;
 	int wd_lut_count;
 	int wd_lut_size;
+	int status;
 
 } monitor_t;
 
