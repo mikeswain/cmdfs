@@ -39,28 +39,7 @@ options_t options = {
 monitor_t *monitor = NULL;
 cleaner_t *cleaner = NULL;
 
-static char *alloc_path(const char *dirpath) {
-	int path_max = pathconf(dirpath, _PC_PATH_MAX);
-	if (path_max == -1)         /* Limit not defined, or error */
-	    path_max = PATH_MAX;         /* Take a guess */
-	return (char *)malloc(path_max);
-}
 
-static struct dirent *alloc_dirent(const char *dirpath) {
-	int name_max = pathconf(dirpath, _PC_NAME_MAX);
-	if (name_max == -1)         /* Limit not defined, or error */
-	    name_max = NAME_MAX;    /* Take a guess */
-	return (struct dirent *)malloc(offsetof(struct dirent, d_name) + name_max + 1);
-}
-
-static int quick_stat(char *fullpath, struct dirent *dp ) {
-#ifdef _DIRENT_HAVE_D_TYPE
-	return DTTOIF(dp->d_type);
-#else
-	struct stat st;
-	return stat(fullpath,&st) ? -1: st.mode;
-#endif
-}
 static int is_empty(const char *dirpath) {
 	int rv = 1;
 	char *cpath = alloc_path(dirpath);

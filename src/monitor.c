@@ -24,6 +24,7 @@
 #include <sys/inotify.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 int wd_t_compare( const void *_a, const void *_b) {
 	const wd_t *a = (const wd_t *)_a;
@@ -44,28 +45,28 @@ void monitor_add_directory( monitor_t *m, const char *path ) {
 		int count = 0, size = 4096;
 		char **dirlist = malloc(size*sizeof(char *));
 		DIR *dir = opendir(path);
-		union { // cope with possible broken dirent implementation, come on linux!
-			struct dirent d;
-		    char b[offsetof (struct dirent, d_name) + NAME_MAX + 1];
-		} u;
+		struct dirent *dp = alloc_dirent(path);
 		struct dirent *ptr;
 		// build temp list of subdirs to add - otherwise recurse can end up with too many dir ptrs open
-		while ( !readdir_r(dir,&u.d,&ptr) && ptr != NULL ) {
-			if ( strcmp(u.d.d_name,".") && strcmp(u.d.d_name,"..")) {
-				struct stat st;
-				char subpath[strlen(path)+strlen(u.d.d_name)+2];
-				sprintf(subpath,"%s/%s",path,u.d.d_name);
-				if (!stat(subpath,&st) && // no link follow - option?
-					 S_ISDIR(st.st_mode) &&
+		while ( !readdir_r(dir,dp,&ptr) && ptr != NULL ) {
+			if ( strcmp(dp->d_name,".") && strcmp(dp->d_name,"..")) {
+       				char subpath = asprintf("%s/%s",path,dp->d_name);
+				int mode=quick_stat(subpath,dp);
+				if ( mode!=-1 && // no link follow - option?
+					 S_ISDIR(mode) &&
 					 !access(subpath,R_OK) ) {
 					if ( count > size ) {
 						size *= 2;
 						dirlist = realloc(dirlist,size * sizeof(char*));
 					}
-					dirlist[count++] = strdup(subpath);
+					dirlist[count++] = subpath;
+				}
+				else {
+				  free(subpath);
 				}
 			}
 		}
+		free(dp);
 		closedir(dir);
 		for ( int i = 0; i < count; i++ ) {
 			monitor_add_directory(m,dirlist[i]);

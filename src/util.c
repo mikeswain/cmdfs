@@ -21,6 +21,33 @@
 */
 #include "cmdfs.h"
 #include <limits.h>
+#include <fcntl.h>
+#include <dirent.h>
+
+char *alloc_path(const char *dirpath) {
+	int path_max = pathconf(dirpath, _PC_PATH_MAX);
+	if (path_max == -1)         /* Limit not defined, or error */
+	    path_max = PATH_MAX;         /* Take a guess */
+	return (char *)malloc(path_max);
+}
+
+struct dirent *alloc_dirent(const char *dirpath) {
+	int name_max = pathconf(dirpath, _PC_NAME_MAX);
+	if (name_max == -1)         /* Limit not defined, or error */
+	    name_max = NAME_MAX;    /* Take a guess */
+	return (struct dirent *)malloc(offsetof(struct dirent, d_name) + name_max + 1);
+}
+
+int quick_stat(char *fullpath, struct dirent *dp ) {
+#ifdef _DIRENT_HAVE_D_TYPE
+	return DTTOIF(dp->d_type);
+#else
+	struct stat st;
+	return stat(fullpath,&st) ? -1: st.mode;
+#endif
+}
+
+
 /*
  * Given a token (e.g "%s") replace all occurrences of it with the given value
  * If the first character is doubled (e.g. %%) treat as quoted. Returns

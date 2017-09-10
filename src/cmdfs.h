@@ -139,5 +139,9 @@ char *token_substitute(const char *str, const char *token, const char *value );
 char *tokens_substitute(const char *str, const char *tokens[], const char *values[] );
 const char *hash_path(const char *path);
 const char *makepath( const char *path );
+char *alloc_path(const char *dirpath);
+struct dirent *alloc_dirent(const char *dirpath);
+int quick_stat(char *fullpath, struct dirent *dp );
+
 
 #endif /* CMDFS_H_ */

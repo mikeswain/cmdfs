@@ -1,6 +1,6 @@
-cmdfs-log.o: log.c /usr/lib/gcc/x86_64-linux-gnu/4.6.1/include/stdarg.h \
- /usr/include/syslog.h /usr/include/x86_64-linux-gnu/sys/syslog.h \
- /usr/include/features.h /usr/include/x86_64-linux-gnu/bits/predefs.h \
+cmdfs-log.o: log.c /usr/include/stdc-predef.h \
+ /usr/lib/gcc/x86_64-linux-gnu/5/include/stdarg.h /usr/include/syslog.h \
+ /usr/include/x86_64-linux-gnu/sys/syslog.h /usr/include/features.h \
  /usr/include/x86_64-linux-gnu/sys/cdefs.h \
  /usr/include/x86_64-linux-gnu/bits/wordsize.h \
  /usr/include/x86_64-linux-gnu/gnu/stubs.h \
@@ -8,15 +8,15 @@ cmdfs-log.o: log.c /usr/lib/gcc/x86_64-linux-gnu/4.6.1/include/stdarg.h \
  /usr/include/x86_64-linux-gnu/bits/syslog-path.h \
  /usr/include/x86_64-linux-gnu/bits/syslog.h
 
-/usr/lib/gcc/x86_64-linux-gnu/4.6.1/include/stdarg.h:
+/usr/include/stdc-predef.h:
+
+/usr/lib/gcc/x86_64-linux-gnu/5/include/stdarg.h:
 
 /usr/include/syslog.h:
 
 /usr/include/x86_64-linux-gnu/sys/syslog.h:
 
 /usr/include/features.h:
-
-/usr/include/x86_64-linux-gnu/bits/predefs.h:
 
 /usr/include/x86_64-linux-gnu/sys/cdefs.h:
 
