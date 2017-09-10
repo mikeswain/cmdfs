@@ -1,5 +1,9 @@
+/**
+* Required by fuse.h
+*/
 #define FUSE_USE_VERSION 26
 
+#include "config.h"
 #include "cmdfs.h"
 
 #include <errno.h>
@@ -9,7 +13,6 @@
 #include <dirent.h>
 #include <stdint.h>
 #include <pthread.h>
-#define CMDFS_PACKAGE_VERSION "0.1"
 
 
 options_t options = {
@@ -50,6 +53,14 @@ static struct dirent *alloc_dirent(const char *dirpath) {
 	return (struct dirent *)malloc(offsetof(struct dirent, d_name) + name_max + 1);
 }
 
+static int quick_stat(char *fullpath, struct dirent *dp ) {
+#ifdef _DIRENT_HAVE_D_TYPE
+	return DTTOIF(dp->d_type);
+#else
+	struct stat st;
+	return stat(fullpath,&st) ? -1: st.mode;
+#endif
+}
 static int is_empty(const char *dirpath) {
 	int rv = 1;
 	char *cpath = alloc_path(dirpath);
@@ -66,10 +77,10 @@ static int is_empty(const char *dirpath) {
 			if ( strcmp(dp->d_name,".") && strcmp(dp->d_name,"..") ) {
 				if ( !options.link_thru) {
 					strcpy(npath,dp->d_name);
-					struct stat st;
-					if (!stat(cpath,&st)) {
-						if (!S_ISREG(st.st_mode)) {
-							if ( S_ISDIR(st.st_mode)) {
+					int mode = quick_stat(cpath,dp);
+					if (mode != -1) {
+						if (!S_ISREG(mode)) {
+							if ( S_ISDIR(mode)) {
 								if  ( sdircount >= sdirsize ) {
 									if ( sdirsize == 0 ) {
 										sdirsize = 256;
@@ -83,7 +94,7 @@ static int is_empty(const char *dirpath) {
 								sdirs[sdircount++] = strdup(cpath);
 							}
 						}
-						else if (S_ISREG(st.st_mode)) { // reg file - see if it matches
+						else  { // reg file - see if it matches
 							vfile_t *f = file_create_from_src(cpath);
 							rv = (file_get_command(f) == NULL);
 							file_destroy(f);
@@ -361,7 +372,7 @@ static int cmdfs_opt_proc(void *data, const char *arg, int key, struct fuse_args
              exit(1);
 
      case KEY_VERSION:
-             fprintf(stderr, "Cmdfs version %s\n", CMDFS_PACKAGE_VERSION);
+             fprintf(stderr, "%s\n", PACKAGE_STRING);
              fuse_opt_add_arg(outargs, "--version");
              fuse_main(outargs->argc, outargs->argv, &cmdfs_operations, NULL);
              exit(0);
