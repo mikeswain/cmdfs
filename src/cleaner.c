@@ -32,7 +32,7 @@
 
 typedef struct {
 	struct stat st;
-	char name[NAME_MAX+1];
+	char *name;
 } entry_t;
 
 int timespeccmp( const struct timespec *a, const struct timespec *b) {
@@ -63,36 +63,38 @@ void *cleaner_run( void *_cleaner ) {
 				int entries_size = 4096;
 				int entries_count = 0;
 				entry_t *entries = malloc(entries_size * sizeof(entry_t));
-				struct dirent d;
+				struct dirent *dp = alloc_dirent(c->dir);
 				struct dirent *dptr;
-				while ( !readdir_r(dirp,&d,&dptr) && dptr != NULL ) {
-					if (strcmp(d.d_name,"..") && strcmp(d.d_name,".")) {
-						char fname[strlen(c->dir)+strlen(d.d_name)+2];
-						if ( entries_count > entries_size ) {
+				while ( !readdir_r(dirp,dp,&dptr) && dptr != NULL ) {
+					if (strcmp(dp->d_name,"..") && strcmp(dp->d_name,".")) {
+						if ( entries_count >= entries_size ) {
 							entries_size *= 2;
 							entries = realloc(entries,entries_size);
 						}
 						entry_t *entry = entries + entries_count;
-						sprintf(fname,"%s/%s",c->dir,d.d_name);
-						if ( !stat(fname,&entry->st) ) {
-							if (S_ISREG(entry->st.st_mode) && !access(fname,O_RDWR)) {
-								if ( c->age_lim <= 0 || (now - entry->st.st_mtim.tv_sec) < c->age_lim ) {
-									// Add to list of entries to be considered for culling
-									strcpy(entry->name,d.d_name);
-									entries_count++;
-									dirsize += entry->st.st_size / 1024; // total size in Kb
-								}
-								else {
-									// Definately too old, cull it now
-									if ( !unlink(fname))
-										log_debug("Expired file %s removed",fname);
-									else
-										log_error("Failed to cull file from cache directory %s (%s)",fname,strerror(errno));
+						char *fname;
+						if (!asprintf(&fname,"%s/%s",c->dir,dp->d_name)) {
+							if ( !stat(fname,&entry->st) ) {
+								if (S_ISREG(entry->st.st_mode) && !access(fname,O_RDWR)) {
+									if ( c->age_lim <= 0 || (now - entry->st.st_mtim.tv_sec) < c->age_lim ) {
+										// Add to list of entries to be considered for culling
+										entry->name = strdup(dp->d_name);
+										entries_count++;
+										dirsize += entry->st.st_size / 1024; // total size in Kb
+									}
+									else {
+										// Definately too old, cull it now
+										if ( !unlink(fname))
+											log_debug("Expired file %s removed",fname);
+										else
+											log_error("Failed to cull file from cache directory %s (%s)",fname,strerror(errno));
+									}
 								}
 							}
-						}
-						else {
-							log_debug("Cleaner unable to stat %s - ignored (%s)",fname,strerror(errno));
+							else {
+								log_debug("Cleaner unable to stat %s - ignored (%s)",fname,strerror(errno));
+							}
+							free(fname);
 						}
 					}
 				}
@@ -111,12 +113,14 @@ void *cleaner_run( void *_cleaner ) {
 							overcount = c->entry_lim > 0 && i > c->entry_lim;
 						}
 						else {
-							char fname[strlen(c->dir)+strlen(entry->name)+2];
-							sprintf(fname,"%s/%s",c->dir,entry->name);
+							char *fname;
+							if (!asprintf(&fname,"%s/%s",c->dir,entry->name)) {
 							if ( !unlink(fname))
-								log_debug("Culled %s (%s)",fname,oversize ? "exceeded directory size limit" : "exceeded directory entry limit");
-							else
-								log_error("Failed to cull file from cache directory %s (%s)",fname,strerror(errno));
+									log_debug("Culled %s (%s)",fname,oversize ? "exceeded directory size limit" : "exceeded directory entry limit");
+								else
+									log_error("Failed to cull file from cache directory %s (%s)",fname,strerror(errno));
+								free(fname);
+							}
 						}
 					}
 
@@ -131,6 +135,10 @@ void *cleaner_run( void *_cleaner ) {
 						c->sleep *= 2;
 
 				}
+				for ( int i = 0; i < entries_count; i++ ) {
+					free(entries[i].name);
+				}
+
 				free(entries);
 			}
 			else {

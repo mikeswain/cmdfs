@@ -33,9 +33,10 @@ int wd_t_compare( const void *_a, const void *_b) {
 }
 
 void monitor_add_directory( monitor_t *m, const char *path ) {
+	log_debug("Adding directory %s",path);
 	int wd = inotify_add_watch(m->fd,path,IN_CREATE | IN_DELETE | IN_CLOSE_WRITE | IN_MOVED_TO | IN_MOVED_FROM);
 	if ( wd ) {
-		if ( m->wd_lut_count > m->wd_lut_size) {
+		if ( m->wd_lut_count >= m->wd_lut_size) {
 			m->wd_lut_size *= 2; // need more space in buffer - double it
 			m->wd_lut = realloc(m->wd_lut,m->wd_lut_size*sizeof(wd_t));
 		}
@@ -45,32 +46,37 @@ void monitor_add_directory( monitor_t *m, const char *path ) {
 		int count = 0, size = 4096;
 		char **dirlist = malloc(size*sizeof(char *));
 		DIR *dir = opendir(path);
-		struct dirent *dp = alloc_dirent(path);
-		struct dirent *ptr;
-		// build temp list of subdirs to add - otherwise recurse can end up with too many dir ptrs open
-		while ( !readdir_r(dir,dp,&ptr) && ptr != NULL ) {
-			if ( strcmp(dp->d_name,".") && strcmp(dp->d_name,"..")) {
-       				char subpath = asprintf("%s/%s",path,dp->d_name);
-				int mode=quick_stat(subpath,dp);
-				if ( mode!=-1 && // no link follow - option?
-					 S_ISDIR(mode) &&
-					 !access(subpath,R_OK) ) {
-					if ( count > size ) {
-						size *= 2;
-						dirlist = realloc(dirlist,size * sizeof(char*));
+		if ( dir ) {
+			struct dirent *dp = alloc_dirent(path);
+			struct dirent *ptr;
+			// build temp list of subdirs to add - otherwise recurse can end up with too many dir ptrs open
+			while ( !readdir_r(dir,dp,&ptr) && ptr != NULL ) {
+				if ( strcmp(dp->d_name,".") && strcmp(dp->d_name,"..")) {
+       					char *subpath;
+					if (!asprintf(&subpath,"%s/%s",path,dp->d_name)) {
+						int mode=quick_stat(subpath,dp);
+						if ( mode!=-1 && // no link follow - option?
+							 S_ISDIR(mode) &&
+						 	!access(subpath,R_OK) ) {
+							if ( count >= size ) {
+								size *= 2;
+								dirlist = realloc(dirlist,size * sizeof(char*));
+							}
+							dirlist[count++] = subpath;
+						}
+						else {
+				  			free(subpath);
+						}
 					}
-					dirlist[count++] = subpath;
-				}
-				else {
-				  free(subpath);
 				}
 			}
-		}
-		free(dp);
-		closedir(dir);
-		for ( int i = 0; i < count; i++ ) {
-			monitor_add_directory(m,dirlist[i]);
-			free(dirlist[i]);
+			free(dp);
+			closedir(dir);
+		
+			for ( int i = 0; i < count; i++ ) {
+				monitor_add_directory(m,dirlist[i]);
+				free(dirlist[i]);
+			}
 		}
 		free(dirlist);
 	}
