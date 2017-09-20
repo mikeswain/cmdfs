@@ -143,5 +143,14 @@ char *alloc_path(const char *dirpath);
 struct dirent *alloc_dirent(const char *dirpath);
 int quick_stat(char *fullpath, struct dirent *dp );
 
+typedef struct dir_info_s {
+    int mode;
+    const char *path;
+    const char *dir;
+    const char *name;
+} dir_info;
 
+int dir_visit( const char *root, int depth,
+  int (*visitor)( const dir_info *, void * ),
+  void *data);
 #endif /* CMDFS_H_ */

@@ -31,63 +31,40 @@ int wd_t_compare( const void *_a, const void *_b) {
 	const wd_t *b = (const wd_t *)_b;
 	return a->wd < b->wd ? -1 : a->wd > b->wd ? 1 : 0;
 }
-
-void monitor_add_directory( monitor_t *m, const char *path ) {
-	log_debug("Adding directory %s",path);
-	int wd = inotify_add_watch(m->fd,path,IN_CREATE | IN_DELETE | IN_CLOSE_WRITE | IN_MOVED_TO | IN_MOVED_FROM);
-	if ( wd ) {
-		if ( m->wd_lut_count >= m->wd_lut_size) {
-			m->wd_lut_size *= 2; // need more space in buffer - double it
-			m->wd_lut = realloc(m->wd_lut,m->wd_lut_size*sizeof(wd_t));
-		}
-		m->wd_lut[m->wd_lut_count].wd = wd;
-		m->wd_lut[m->wd_lut_count++].path = strdup(path);
-		qsort(m->wd_lut,m->wd_lut_count,sizeof(wd_t),wd_t_compare); // keep wd list sorted
-		int count = 0, size = 4096;
-		char **dirlist = malloc(size*sizeof(char *));
-		DIR *dir = opendir(path);
-		if ( dir ) {
-			struct dirent *dp = alloc_dirent(path);
-			struct dirent *ptr;
-			// build temp list of subdirs to add - otherwise recurse can end up with too many dir ptrs open
-			while ( !readdir_r(dir,dp,&ptr) && ptr != NULL ) {
-				if ( strcmp(dp->d_name,".") && strcmp(dp->d_name,"..")) {
-       					char *subpath;
-					if (!asprintf(&subpath,"%s/%s",path,dp->d_name)) {
-						int mode=quick_stat(subpath,dp);
-						if ( mode!=-1 && // no link follow - option?
-							 S_ISDIR(mode) &&
-						 	!access(subpath,R_OK) ) {
-							if ( count >= size ) {
-								size *= 2;
-								dirlist = realloc(dirlist,size * sizeof(char*));
-							}
-							dirlist[count++] = subpath;
-						}
-						else {
-				  			free(subpath);
-						}
-					}
-				}
+static int monitor_add_directory_visitor( const dir_info *visit, void *data ) {
+	if ( S_ISDIR(visit->mode) && strcmp(visit->name,".") && strcmp(visit->name,"..")) {
+		monitor_t *m = (monitor_t *)data;
+		int wd = inotify_add_watch(m->fd,visit->path,IN_CREATE | IN_DELETE | IN_CLOSE_WRITE | IN_MOVED_TO | IN_MOVED_FROM);
+		if ( wd > 0 || errno == ENOSPC ) {
+			log_debug(wd>0?"Added watch for %s":"Pending adding watch for when inotify resource available %s",visit->path);//
+			if ( m->wd_lut_count >= m->wd_lut_size) {
+				m->wd_lut_size *= 2; // need more space in buffer - double it
+				m->wd_lut = realloc(m->wd_lut,m->wd_lut_size*sizeof(wd_t));
+				if ( !m->wd_lut )
+					return -1; // error allocating
 			}
-			free(dp);
-			closedir(dir);
-		
-			for ( int i = 0; i < count; i++ ) {
-				monitor_add_directory(m,dirlist[i]);
-				free(dirlist[i]);
-			}
+			m->wd_lut[m->wd_lut_count].wd = wd;
+			m->wd_lut[m->wd_lut_count++].path = strdup(visit->path);
+			qsort(m->wd_lut,m->wd_lut_count,sizeof(wd_t),wd_t_compare); // keep wd list sorted
 		}
-		free(dirlist);
+		else {
+			log_debug("Failed adding watch for directory %s",visit->path);
+			return -1; // unrecoverable error registering
+		}
 	}
+	return 0;
 }
 
+void monitor_add_directory( monitor_t *m, const char *path ) {
+	dir_visit(path,-1,monitor_add_directory_visitor,m);
+}
 void monitor_remove_directory( monitor_t *m, char *name ) {
 	// remove all records with leading path as one found
 	const char *root = strdup(name);
 	wd_t *src = m->wd_lut;
 	wd_t *dst = m->wd_lut;
 	int new_count = 0;
+	int watches_released = 0;
 	while (src < m->wd_lut + m->wd_lut_count) {
 		if ( strncmp(src->path,root,strlen(root)) ) {
 			if ( dst != src )
@@ -97,8 +74,13 @@ void monitor_remove_directory( monitor_t *m, char *name ) {
 			new_count++;
 		}
 		else {
-			if (!inotify_rm_watch(m->fd,src->wd)) {
-				log_warning("Unable to remove watch for %s",name);
+			if (src->wd >0) {
+				if  (inotify_rm_watch(m->fd,src->wd)) {
+					watches_released++;
+				}
+				else {
+					log_warning("Unable to remove watch for %s",src->path);
+				}
 			}
 			free(src->path); // destroy
 		}
@@ -106,6 +88,27 @@ void monitor_remove_directory( monitor_t *m, char *name ) {
 	}
 	free((void *)root);
 	m->wd_lut_count = new_count;
+
+	/**
+	* For every released watch we can add a new one if the request previously
+	* wasn't granted due to the inotify limit. These were marked by having a wd=-1 in the list
+	*/
+	wd_t find = { .wd = -1 };
+	wd_t *wd_found = m->wd_lut;
+	while ( watches_released > 0) {
+			wd_found = bsearch(&find,wd_found,m->wd_lut_count-(wd_found-m->wd_lut),sizeof(wd_t),wd_t_compare);
+			if ( wd_found ) {
+				wd_found->wd = inotify_add_watch(m->fd,wd_found->path,IN_CREATE | IN_DELETE | IN_CLOSE_WRITE | IN_MOVED_TO | IN_MOVED_FROM);
+				if ( wd_found->wd ) {
+					watches_released--;
+					log_debug("Added watch for pending %s",wd_found->path);//
+				}
+			}
+			else {
+				break; // no more needed
+			}
+	}
+
 }
 
 void *monitor_run( void *_monitor ) {
@@ -207,8 +210,12 @@ monitor_t *monitor_create( const char *rootdir, const char *mountdir ) {
 void monitor_destroy(monitor_t *m) {
 	void *retval;
 
-	while (m->wd_lut_count > 0)
-		monitor_remove_directory(m,m->wd_lut[0].path);
+	for ( wd_t *wd_p = m->wd_lut; wd_p < m->wd_lut+m->wd_lut_count; wd_p++) {
+		if  (wd_p->wd > 0 && !inotify_rm_watch(m->fd,wd_p->wd)) {
+			log_debug("Removed watch %s",wd_p->path);
+		}
+		free(wd_p->path);
+	}
 	m->stop = 1;
 	if ( m->thread ) {
 		pthread_cancel(m->thread);
@@ -223,7 +230,3 @@ void monitor_destroy(monitor_t *m) {
 		free( m->wd_lut );
 	free(m);
 }
-
-
-
-

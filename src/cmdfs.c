@@ -40,68 +40,24 @@ monitor_t *monitor = NULL;
 cleaner_t *cleaner = NULL;
 
 
-static int is_empty(const char *dirpath) {
-	int rv = 1;
-	char *cpath = alloc_path(dirpath);
-	sprintf(cpath,"%s/",strcmp(dirpath,"/")?dirpath:"");
-	char *npath = cpath+strlen(dirpath)+1;
-	DIR *dir = opendir(dirpath);
-	if ( dir ) {
-		struct dirent *dpp = alloc_dirent(dirpath);
-		struct dirent *dp;
-		char **sdirs = NULL;
-		int sdirsize = 0;
-		int sdircount = 0;
-		while (rv && !readdir_r(dir,dpp,&dp) && dp != NULL) {
-			if ( strcmp(dp->d_name,".") && strcmp(dp->d_name,"..") ) {
-				if ( !options.link_thru) {
-					strcpy(npath,dp->d_name);
-					int mode = quick_stat(cpath,dp);
-					if (mode != -1) {
-						if (!S_ISREG(mode)) {
-							if ( S_ISDIR(mode)) {
-								if  ( sdircount >= sdirsize ) {
-									if ( sdirsize == 0 ) {
-										sdirsize = 256;
-										sdirs = malloc(sdirsize*sizeof(char *));
-									}
-									else {
-										sdirsize *= 2;
-										sdirs = realloc(sdirs,sdirsize*sizeof(char *));
-									}
-								}
-								sdirs[sdircount++] = strdup(cpath);
-							}
-						}
-						else  { // reg file - see if it matches
-							vfile_t *f = file_create_from_src(cpath);
-							rv = (file_get_command(f) == NULL);
-							file_destroy(f);
-						}
-					}
-					else
-						rv = 0;
-				}
-				else
-					rv = 0;
-			}
+static int is_empty_visitor( const dir_info *visit, void *data ) {
+	int rv = 0;
+	if ( S_ISREG(visit->mode) ) {
+		if ( options.link_thru ) {
+			rv = 1; // there is a regular file and linked thru, so not empty
 		}
-		free(dpp);
-		free(cpath);
-		closedir(dir);
-		if ( rv && sdirs ) {
-			for ( int i = 0; rv && i < sdircount; i++ ) {
-				rv = is_empty(sdirs[i]);
-			}
-		}
-		if ( sdirs ) {
-			for ( int i = 0; i < sdircount; i++ )
-				free(sdirs[i]);
-			free(sdirs);
+		else {
+				vfile_t *f = file_create_from_src(visit->path);
+				rv = file_get_command(f) != NULL; // virtual file is to be generated so not empty
+				file_destroy(f);
 		}
 	}
 	return rv;
 }
+static int is_empty(const char *dirpath) {
+	return dir_visit(dirpath,-1,is_empty_visitor,NULL) == 0;
+}
+
 
 int cmdfs_open(const char *path, struct fuse_file_info *info) {
 	info->fh = (uint64_t)(long)file_create_from_dst(path);
@@ -153,56 +109,60 @@ int cmdfs_getattr(const char *path, struct stat *st) {
 	return rv;
 }
 
+struct readdir_collector {
+	fuse_fill_dir_t fill;
+	off_t offset;
+	struct fuse_file_info *info;
+	int pos;
+	void *buf;
+};
+static int readdir_visitor( const dir_info *visit, void *data ) {
+	//log_debug(visit->path);
+	struct readdir_collector *c = (struct readdir_collector *)data;
+	if (++c->pos > c->offset ) {
+		int isParent = !strcmp(visit->name,"/") || !strcmp(visit->name,".."); // special case '..' looks in mount's parent
+    const char *cpath = visit->path;
+		char parent[strlen(options.mount_dir)+4];
+		if ( isParent ) {
+			sprintf(parent,"%s/..",options.mount_dir);
+			cpath = parent;
+		}
+		if (isParent || (S_ISDIR(visit->mode) && // its a dir
+				!(options.hide_empty_dirs && is_empty(cpath))) || // its empty and we're hiding empties
+				options.link_thru) { // or linking thru
+			if (c->fill(c->buf,visit->name,NULL,c->pos))
+				return -1; // break out
+		}
+		else if (!options.link_thru && S_ISREG(visit->mode)) {
+			// we don want to show if it doesn't match command filter
+			vfile_t *f = file_create_from_src(cpath);
+			if ( file_get_command(f) && c->fill(c->buf,visit->name,NULL,c->pos)) {
+					file_destroy(f);
+					return -1;
+			}
+			file_destroy(f);
+		}
+	}
+	return 0;
+}
 
 int cmdfs_readdir(const char *path, void *buf, fuse_fill_dir_t fill, off_t offset, struct fuse_file_info *info) {
 	vfile_t *d = file_create_from_dst(path);
 	int rv = 0;
-	DIR *dir;
 	const char *src = file_get_src(d);
 	if (options.hide_empty_dirs && is_empty(src)) {
 		rv = -ENOENT; // dir hidden
 	}
-	else if ( (dir = opendir(src)) ) {
-		struct dirent *dpp=alloc_dirent(src);
-		struct dirent *dp;
-		char *cpath = NULL;
-		int pos = 0;
-		while (!readdir_r(dir,dpp,&dp) && dp != NULL) {
-			if (++pos > offset ) {
-				struct stat st;
-				int isParent = !(strcmp(path,"/") || strcmp(dp->d_name,"..")); // special case '..' looks in mount's parent
-				if ( isParent ) {
-					cpath = realloc(cpath,strlen(options.mount_dir)+4);
-					sprintf(cpath,"%s/..",options.mount_dir);
-				}
-				else {
-					cpath = realloc(cpath,strlen(src)+strlen(dp->d_name)+2);
-					sprintf(cpath,"%s/%s",strcmp(src,"/")?src:"",dp->d_name);
-				}
-				if (!stat(cpath,&st)) {
-					if (isParent || (S_ISDIR(st.st_mode) && // its a dir
-							!(options.hide_empty_dirs && is_empty(cpath))) || // its empty and we're hiding empties
-							options.link_thru) { // or linking thru
-						if (fill(buf,dp->d_name,&st,pos))
-							break;
-					}
-					else if (!options.link_thru && S_ISREG(st.st_mode)) {
-						// we don want to show if it doesn't match command filter
-						vfile_t *f = file_create_from_src(cpath);
-						if ( file_get_command(f) && fill(buf,dp->d_name,&st,pos)) {
-								file_destroy(f); break;
-						}
-						file_destroy(f);
-					}
-				}
-			}
-		}
-		if ( cpath )
-			free(cpath);
-		closedir(dir);
+	else  {
+		struct readdir_collector collect = {
+			.fill = fill,
+			.offset = offset,
+			.info = info,
+			.buf = buf
+		};
+		if ( dir_visit(src,0,readdir_visitor,&collect) < 0 )
+			rv = -errno;
 	}
-	else
-		rv = -errno;
 	file_destroy(d);
 	return rv;
 

@@ -24,11 +24,15 @@
 #include <fcntl.h>
 #include <dirent.h>
 
+int path_max(const char *dirpath) {
+	int pathmax = pathconf(dirpath, _PC_PATH_MAX);
+	if (pathmax == -1)         /* Limit not defined, or error */
+	    pathmax = PATH_MAX;         /* Take a guess */
+	return pathmax;
+
+}
 char *alloc_path(const char *dirpath) {
-	int path_max = pathconf(dirpath, _PC_PATH_MAX);
-	if (path_max == -1)         /* Limit not defined, or error */
-	    path_max = PATH_MAX;         /* Take a guess */
-	return (char *)malloc(path_max);
+	return malloc(path_max(dirpath));
 }
 
 struct dirent *alloc_dirent(const char *dirpath) {
@@ -121,27 +125,10 @@ const char *hash_path(const char *path) {
 
 /*
  * make path
-int makedirsX( const char *path ) {
-
-	char cpath[strlen(path)];
-	const char *last = path, *next;
-	int err = 0;
-	struct stat st;
-
-	while (!err && (next=strchr(last,'/'))) {
-		strncpy(cpath+(last-path),last,next-last);
-		last = next+1;
-		err = stat(cpath,&st) && mkdir(cpath,0777);
-
-	}
-	if ( !err )
-		err = stat(path,&st) && mkdir(path,0777);
-	return err;
-}
  */
 
 const char* makepath( const char *path ) {
-	char cpath[PATH_MAX];
+	char cpath[path_max(path)];
 	const char *rv;
 	int err = 0;
 	while ( !err && (!(rv = realpath(path,cpath)) && errno == ENOENT)) {
@@ -150,3 +137,80 @@ const char* makepath( const char *path ) {
 	return rv;
 }
 
+/**
+* Traverse the directory tree rooted at root, calling vistor function for each directory entry recursively
+* Entry info is passed to visitor including full path, parent path, filename, mode
+* returns 0 on success, -ve on faiure (check errno)
+* if the vistor function return non-zero, traversal is aborted and +ve is returned
+*/
+int dir_visit( const char *root, int depth,
+  int (*visitor)( const dir_info *, void *data ),
+  void *data)
+{
+	assert(root);
+	assert(visitor);
+	int rv = 0;
+	if ( depth < 0 ) depth = INT_MAX;
+
+	DIR *fd = opendir(root);
+	if ( fd ) {
+		char fullpath[path_max(root)];
+		dir_info visit;
+		visit.dir = root;
+
+		sprintf(fullpath,"%s/",strcmp(root,"/")?root:"");
+		int dirsize = 0;
+		int dircount = 0;
+		char **dirlist = NULL;
+
+		struct dirent *dpp = alloc_dirent(root);
+		if (!dpp) { rv = -1; goto error; }
+		struct dirent *dp;
+		while (!rv && !readdir_r(fd,dpp,&dp) && dp != NULL) {
+			strcpy(fullpath+strlen(root)+1,dp->d_name);
+			visit.mode = quick_stat(fullpath,dp);
+			//if ( visit.mode == -1 )
+				//continue; // failed to stat - ignore
+			// call visitor
+			visit.path = fullpath;
+			visit.name = dp->d_name;
+			if ((visitor)(&visit,data)) {
+				rv = 1;
+				break; // exit requested
+			}
+			if ( S_ISDIR(visit.mode) && strcmp(dp->d_name,".") && strcmp(dp->d_name,"..")) {
+				if ( dircount >= dirsize ) {
+					if ( dirlist ) {
+						dirsize *= 2;
+						char **newdirlist = (char **)realloc(dirlist,dirsize * sizeof(char*));
+						if (!newdirlist) { rv = -1; break; }
+						dirlist = newdirlist;
+					}
+					else {
+						 dirsize = 4096;
+						 dirlist = (char **)malloc(dirsize*sizeof(char*));
+						 if ( !dirlist ) { rv = -1; break; }
+					}
+				}
+				dirlist[dircount++] = strdup(fullpath);
+			}
+		}
+		closedir(fd);
+		fd = NULL;
+		if( !rv && dirlist && depth > 0) {
+			for ( int i = 0; i < dircount; i++ ) {
+				if ( dirlist[i] && (rv=dir_visit(dirlist[i],depth-1,visitor,data))) {
+					break; // error or exit
+				}
+			}
+		}
+error:
+		if( dirlist ) {
+			for ( int i = 0; i < dircount; i++ ) {
+				if ( dirlist[i] ) free(dirlist[i]);
+			}
+		}
+		if (fd ) closedir(fd);
+	}
+	return rv;
+}

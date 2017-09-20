@@ -415,7 +415,7 @@ target_alias =
 top_build_prefix = ../
 top_builddir = ..
 top_srcdir = ..
-TESTS = test.py
+TESTS = run-tests.sh
 EXTRA_DIST = test.py test.jpg test.tar cp.py
 all: all-am
 
@@ -598,9 +598,9 @@ recheck: all
 	        am__force_recheck=am--force-recheck \
 	        TEST_LOGS="$$log_list"; \
 	exit $$?
-test.py.log: test.py
-	@p='test.py'; \
-	b='test.py'; \
+run-tests.sh.log: run-tests.sh
+	@p='run-tests.sh'; \
+	b='run-tests.sh'; \
 	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
