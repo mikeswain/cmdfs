@@ -54,7 +54,7 @@ void *cleaner_run( void *_cleaner ) {
 	while (!c->stop) {
 		long now = time(NULL);
 		struct stat st;
-		if ( !stat(c->dir, &st) && timespeccmp(&st.st_ctim,&lastmod)) {
+		if (  !stat(c->dir, &st) && (c->age_lim > 0 || timespeccmp(&st.st_ctim,&lastmod))) { // or a file has changed
 			// Something in dir has changed, I may have work to do
 			lastmod = st.st_ctim;
 			DIR *dirp = opendir(c->dir);
@@ -73,7 +73,7 @@ void *cleaner_run( void *_cleaner ) {
 						}
 						entry_t *entry = entries + entries_count;
 						char *fname;
-						if (!asprintf(&fname,"%s/%s",c->dir,dp->d_name)) {
+						if (asprintf(&fname,"%s/%s",c->dir,dp->d_name)) {
 							if ( !stat(fname,&entry->st) ) {
 								if (S_ISREG(entry->st.st_mode) && !access(fname,O_RDWR)) {
 									if ( c->age_lim <= 0 || (now - entry->st.st_mtim.tv_sec) < c->age_lim ) {
@@ -181,7 +181,3 @@ void cleaner_destroy(cleaner_t *c) {
 		free((void *)c->dir);
 	free(c);
 }
-
-
-
-
