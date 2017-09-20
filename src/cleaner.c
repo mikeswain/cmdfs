@@ -114,13 +114,13 @@ void *cleaner_run( void *_cleaner ) {
 						}
 						else {
 							char *fname;
-							if (!asprintf(&fname,"%s/%s",c->dir,entry->name)) {
-							if ( !unlink(fname))
-									log_debug("Culled %s (%s)",fname,oversize ? "exceeded directory size limit" : "exceeded directory entry limit");
-								else
-									log_error("Failed to cull file from cache directory %s (%s)",fname,strerror(errno));
-								free(fname);
-							}
+							if (asprintf(&fname,"%s/%s",c->dir,entry->name)) {
+								if ( !unlink(fname))
+										log_debug("Culled %s (%s)",fname,oversize ? "exceeded directory size limit" : "exceeded directory entry limit");
+									else
+										log_error("Failed to cull file from cache directory %s (%s)",fname,strerror(errno));
+									free(fname);
+								}
 						}
 					}
 
