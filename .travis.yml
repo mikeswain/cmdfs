@@ -1,0 +1,5 @@
+install:
+  - apt-get install libfuse-dev
+  
+build:
+  - ./configure && make check dist
