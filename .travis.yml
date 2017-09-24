@@ -2,5 +2,5 @@ language: c
 before-install:
   - apt-get install libfuse-dev
 
-build:
+script:
   - ./configure && make check dist
