@@ -1,5 +1,5 @@
 language: c
-before-install:
+before_install:
   - apt-get install libfuse-dev
 
 script:
