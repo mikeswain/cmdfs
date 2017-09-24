@@ -1,6 +1,6 @@
 language: c
 before_install:
-  - apt-get install libfuse-dev
+  - sudo apt-get install libfuse-dev
 
 script:
   - ./configure && make check dist
