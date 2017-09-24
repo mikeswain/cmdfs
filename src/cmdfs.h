@@ -50,6 +50,8 @@ typedef struct {
    int fnmatch_c;
    regex_t *path_regexps;
    int path_regexp_cnt;
+   regex_t *exclude_regexps;
+   int exclude_regexp_cnt;
    regex_t *mime_regexps;
    int mime_regexp_cnt;
 } options_t;

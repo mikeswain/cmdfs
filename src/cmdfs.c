@@ -32,6 +32,8 @@ options_t options = {
 	.fnmatch_c = 0,
 	.path_regexps = NULL,
 	.path_regexp_cnt = 0,
+	.exclude_regexps = NULL,
+	.exclude_regexp_cnt = 0,
 	.mime_regexps = NULL,
 	.mime_regexp_cnt = 0
 };
@@ -240,6 +242,7 @@ enum
    KEY_VERSION,
    KEY_EXTENSION,
    KEY_PATH_RE,
+	 KEY_EXCLUDE_RE,
    KEY_MIME_RE
 };
 
@@ -259,8 +262,9 @@ struct fuse_opt cmdfs_opts[] = {
 	CMDFS_OPT_KEY("cache-entries=%lu",   cache_entries, 0),
 	CMDFS_OPT_KEY("cache-expiry=%lu",   cache_expiry, 0),
 	CMDFS_OPT_KEY("command=%s",   command, 0),
-	FUSE_OPT_KEY("path-re=%s",KEY_PATH_RE),
 	FUSE_OPT_KEY("extension=%s",KEY_EXTENSION),
+	FUSE_OPT_KEY("path-re=%s",KEY_PATH_RE),
+	FUSE_OPT_KEY("exclude-re=%s",KEY_EXCLUDE_RE),
 	FUSE_OPT_KEY("mime-re=%s",KEY_MIME_RE),
 
 	FUSE_OPT_KEY("-V",             KEY_VERSION),
@@ -295,6 +299,7 @@ static int cmdfs_opt_proc(void *data, const char *arg, int key, struct fuse_args
                      "    -o command=<shell command> (dd)\n"
                      "    -o extension=ext1[;ext2[;...]]\n"
                      "    -o path-re=<regular expression>\n"
+										 "    -o exclude-re=<regular expression>\n"
                      "    -o mime-re=<regular expression>\n"
             		 "    -o [no]link-thru (nolink-thru)\n"
                          "    -o [no]stat_pass_thru (nostat_pass_thru)\n"
@@ -340,12 +345,23 @@ static int cmdfs_opt_proc(void *data, const char *arg, int key, struct fuse_args
 			int err;
 			options.path_regexps = realloc(options.path_regexps,sizeof(regex_t)*++options.path_regexp_cnt);
 			if ((err=regcomp(options.path_regexps+(options.path_regexp_cnt-1), val+1,0))) {
-				log_error("Error compiling regex: %s",get_regerror(err,options.path_regexps+(options.path_regexp_cnt-1)));
+				log_error("Error compiling path regex: %s",get_regerror(err,options.path_regexps+(options.path_regexp_cnt-1)));
 				return 1;
 			}
 			log_debug("path-re: %s",val+1);
 			return 0;
     	}
+			case KEY_EXCLUDE_RE:
+     	if (val && strlen(val)>0) {
+ 			int err;
+ 			options.exclude_regexps = realloc(options.exclude_regexps,sizeof(regex_t)*++options.exclude_regexp_cnt);
+ 			if ((err=regcomp(options.exclude_regexps+(options.exclude_regexp_cnt-1), val+1,0))) {
+ 				log_error("Error compiling exclude regex: %s",get_regerror(err,options.exclude_regexps+(options.exclude_regexp_cnt-1)));
+ 				return 1;
+ 			}
+ 			log_debug("exclude-re: %s",val+1);
+ 			return 0;
+     	}
      case KEY_MIME_RE:
     	if (val && strlen(val)>0) {
 			int err;
