@@ -21,9 +21,12 @@ Specify matching file extension(s) to which command is applied
 .B  \-o path-re=<\fIregular expression\fR>
 Specify regexp of pathnames to which command is applied
 .TP 8
+.B  \-o exclude-re=<\fIregular expression\fR>
+Specify regexp of pathnames to which command is never applied
+.TP 8
 .B  \-o mime-re=<\fIregular expression\fR>
 Specify regexp of mime types (as returned by \fIfile
-  -b --mime-type\fP) to which command is applied 
+  -b --mime-type\fP) to which command is applied
 .TP 8
 .B  \-o link-thru
 Pass unmatched files through to filesystem as symbolic links [default:
@@ -34,19 +37,19 @@ Don't show directories that have no matching descendant files
 .TP 8
 .B  \-o monitor
 Watch source directory tree for new files and cache them as they
-appear. New directories will be monitored [default: not monitored] 
+appear. New directories will be monitored [default: not monitored]
 .TP 8
 .B  \-o cache-dir=<\fIdirectory\fR>
 Directory to save cache files [default:
-/usr/local/var/cache/cmdfs/<\fIuser\fR>/<\fIsource-dir\fR>] 
+/usr/local/var/cache/cmdfs/<\fIuser\fR>/<\fIsource-dir\fR>]
 .TP 8
 .B  \-o cache-size=<\fIsize in Mb\fR>
 Size to attempt to limit cache directory to. Files removed on
-least-recently access basis. [default: no limit] 
+least-recently access basis. [default: no limit]
 .TP 8
 .B  \-o cache-entries=<\fIcount\fR>
 Number of entries to attempt to limit cache directory to. Files
-removed on least-recent access basis. [default: no limit] 
+removed on least-recent access basis. [default: no limit]
 .TP 8
 .B  \-o cache-expiry=<\fItime in seconds\fR>
 Items in cache older than this will be replaced when read
@@ -82,15 +85,20 @@ To mount the filesystem as above for a particular user:
 .SS Selection Filters
 
 As well as just matching on extension, files of interest can be selected by
-mime type, matching a regexp (cmdfs uses the file command to determine the
-mimetype):
+mime type (cmdfs uses the file command to determine the
+mimetype) or matching regexps:
 .TP
 	mime-re=image/*
 .PP
-Or just a plain path regexp (this allows us to exclude whole directory subtrees
+Or just a plain path regexp (this allows us to include whole directory subtrees
 etc
 .TP
 	path-re=.*/my-images/
+.PP
+Or exclude patterns:
+etc
+.TP
+  exclude-re=.*/working-files/;/secretstuff
 .PP
 These options can be combined to get the required filter selection.
 
@@ -113,6 +121,11 @@ in the tree, and automatically monitors new subdirectories as they are added:
 .PP
 When you copy the latest batch of files from your camera the resized versions
 will automatically be generated.
+.PP
+Note that inotify has a limit to the number of directories that can be
+monitored. On mounting, cmdfs will attempt to use all the handles it can get.
+When it detects directories being removed, it will attempt to reclaim those
+released handles for directories it was previously unable to cover.
 
 .SS Caching
 cmdfs only recreates view files if the modification date changes on the source.
@@ -189,7 +202,7 @@ Note that the cache expiry time in the example has been set at 5 secs - this
 means the ps results will be re-created if older than 5 sesonds.
 
 
-.IP \(bu 4 
+.IP \(bu 4
 If the executable returns a non-zero exit status, cmdfs will assume that it
   has failed (will appear as 'No such file or directory').
 .IP \(bu 4

@@ -137,6 +137,19 @@ class TestCmdfs(unittest.TestCase):
         self.assertFalse(os.path.isfile(d+'yes/test'))
         self.assertTrue(os.path.isfile(d+'yes/test.please'))
 
+    def test_exclude_re(self):
+        (s,d) = self.mount( self.source, self.dest, {
+            'path-re' : '.*/yes/.*\.please',
+            'exclude-re' : '.*/yes/\.nothanks;.*/yes/no/.*\.nothanks'
+        })
+        os.makedirs(s+'yes/no');
+        setContents(s+'yes/no/1.nothanks',shortcontent)
+        setContents(s+'yes/1.nothanks',shortcontent)
+        setContents(s+'yes/1.yesplease',shortcontent)
+        self.assertFalse(os.path.isfile(d+'yes/no/1.nothanks'))
+        self.assertFalse(os.path.isfile(d+'yes/1.nothanks'))
+        self.assertTrue(os.path.isfile(d+'yes/1.yesplease'))
+
     def test_extension(self):
         (s,d) = self.mount( self.source, self.dest, { 'extension' : 'one;two' })
         setContents(s+'test.one',shortcontent)

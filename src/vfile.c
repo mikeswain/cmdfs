@@ -202,6 +202,13 @@ int file_get_handle( vfile_t *f ) {
 const char *file_get_command(vfile_t *f) {
 	const char *src = file_get_src(f);
 	if ( src ) {
+		if (!f->command && options.exclude_regexp_cnt > 0 ) {
+			// Check path
+			for ( int i = 0; i < options.exclude_regexp_cnt; i++) {
+				if (!regexec(&options.exclude_regexps[i],src,0,NULL,0))
+					goto exitnow; // Explicitly excluded be re give up now
+			}
+		}
 		if ( !f->command && options.fnmatch_c > 0) {
 			const char *filename = basename(src);
 			for ( int i = 0; !f->command && i < options.fnmatch_c; i++) {
@@ -244,6 +251,7 @@ const char *file_get_command(vfile_t *f) {
 	}
 	else
 		log_debug("no source path %s");
+exitnow:
 	return f->command;
 }
 
@@ -268,4 +276,3 @@ void file_destroy( vfile_t *f ) {
 		free(f);
 	}
 }
-
