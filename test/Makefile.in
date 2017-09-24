@@ -416,7 +416,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 TESTS = run-tests.sh
-EXTRA_DIST = test.py test.jpg test.tar cp.py
+EXTRA_DIST = run-tests.sh test.py test.jpg test.tar cp.py
 all: all-am
 
 .SUFFIXES:
