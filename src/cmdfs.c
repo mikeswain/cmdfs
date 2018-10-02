@@ -189,8 +189,7 @@ int cmdfs_readlink(const char *path, char *buf, size_t size) {
 int cmdfs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *info) {
 	vfile_t *f = (vfile_t *)(long)info->fh;
 	if ( f ) {
-		lseek(file_get_handle(f),offset,SEEK_SET);
-		return read(file_get_handle(f), buf, size);
+		return pread(file_get_handle(f), buf, size, offset);
 	}
 	else
 		return -EIO;
