@@ -98,6 +98,7 @@ void *cleaner_run( void *_cleaner ) {
 						}
 					}
 				}
+				closedir(dirp);
 				if ( 	(c->size_lim > 0 && dirsize > c->size_lim) ||
 						(c->entry_lim > 0 && entries_count > c->entry_lim) ) {
 					// Directory is over size limit or entry limit, sort by access time ready to cull
